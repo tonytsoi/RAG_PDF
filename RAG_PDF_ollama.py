@@ -3,7 +3,6 @@ from langchain.vectorstores import Chroma
 from langchain.embeddings import FastEmbedEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.document_loaders import PyPDFLoader
-# from langchain.chains import RetrievalQA
 from langchain.llms import Ollama
 from langchain.prompts import PromptTemplate
 from langchain.schema.runnable import RunnablePassthrough
@@ -53,12 +52,6 @@ def process_and_add_documents(uploaded_files, chroma_db):
 def initialize_llm():
     return Ollama(model=OLLAMA_MODEL)
 
-# # Function to create the Retrieval QA chain
-# @st.cache_resource
-# def initialize_qa_chain(_chroma_db, _llm):
-#     retriever = _chroma_db.as_retriever(search_type="similarity", search_kwargs={"k": 5})
-#     return RetrievalQA.from_chain_type(llm=_llm, retriever=retriever, return_source_documents=True)
-
 # Main App
 def main():
     st.title("RAG Application with PDF Uploads")
@@ -67,7 +60,6 @@ def main():
     # Initialize Chroma database
     chroma_db = initialize_chroma()
     llm = initialize_llm()
-    # qa_chain = initialize_qa_chain(chroma_db, llm)
 
     # Section for uploading PDFs
     st.sidebar.header("Upload PDF Documents")
@@ -89,7 +81,6 @@ def main():
     if st.button("Submit") and query.strip():
         with st.spinner("Retrieving relevant documents and generating a response..."):
             # Run the RAG pipeline
-            # result = qa_chain(query)
             retriever = chroma_db.as_retriever(search_type="similarity", search_kwargs={"k": 5})
             
             relevant_docs = retriever.get_relevant_documents(query)
@@ -110,10 +101,7 @@ def main():
                      | StrOutputParser())
             
             result = chain.invoke(query)
-            
-            # response = result.get("result", "No response generated.")
-            # source_documents = result.get("source_documents", [])
-        
+
         # Display the response
         st.subheader("Response:")
         st.write(result)
