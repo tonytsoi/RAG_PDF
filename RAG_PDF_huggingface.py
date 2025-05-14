@@ -1,17 +1,17 @@
 import streamlit as st
 from langchain.vectorstores import Chroma
-from langchain.embeddings import FastEmbedEmbeddings
+from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.document_loaders import PyPDFLoader
-from langchain.llms import Ollama
 from langchain.prompts import PromptTemplate
 from langchain.schema.runnable import RunnablePassthrough
 from langchain.schema.output_parser import StrOutputParser
 import os
+from langchain_huggingface import HuggingFacePipeline
+from transformers import pipeline
 
 # Define constants
 CHROMA_DB_DIRECTORY = "chroma_db"  # Directory where the Chroma database is stored
-OLLAMA_MODEL = "llama3.2"  # Name of the Ollama model to use
 
 # Ensure the Chroma DB directory exists
 if not os.path.exists(CHROMA_DB_DIRECTORY):
@@ -22,7 +22,24 @@ if not os.path.exists(CHROMA_DB_DIRECTORY):
 def initialize_chroma():
     if os.path.exists(CHROMA_DB_DIRECTORY + '/chroma.sqlite3'):
         os.remove(CHROMA_DB_DIRECTORY + '/chroma.sqlite3')
-    embeddings = FastEmbedEmbeddings()
+    
+    model_id = "thenlper/gte-small"
+    model_kwargs = {'device': 'cpu'}
+    # Set device to Nvidia GPU
+    # model_kwargs = {'device': 'cuda'}
+    encode_kwargs = {'normlize_embeedings': False}
+    
+    embeddings = HuggingFaceEmbeddings(
+        model_name = model_id,
+        model_kwargs = model_kwargs,
+        encode_kwargs = encode_kwargs
+        )
+    
+    tokenizer = embeddings.client.tokenizer
+    if tokenizer.pad_token is None:
+        tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+    
+    # embeddings = FastEmbedEmbeddings()
     return Chroma(persist_directory=CHROMA_DB_DIRECTORY, embedding_function=embeddings)
 
 # Function to process and add documents to the Chroma database
@@ -50,7 +67,28 @@ def process_and_add_documents(uploaded_files, chroma_db):
 # Function to initialize the Ollama LLM
 @st.cache_resource
 def initialize_llm():
-    return Ollama(model=OLLAMA_MODEL)
+    model_id = "meta-llama/Llama-3.2-1B-Instruct"
+    
+    pipe = pipeline(
+                "text-generation",
+                model=model_id,       
+                
+                # Set a lower temperature for more consistent output
+                temperature=0.3,
+                
+                # Maximum no. of new tokens
+                max_new_tokens=2048,
+                
+                # Return only the text after the input text
+                return_full_text=False
+            )
+    
+    # Quick fix for Langchain error
+    pipe.tokenizer.pad_token_id = pipe.tokenizer.eos_token_id
+    
+    llm = HuggingFacePipeline(pipeline = pipe)
+    
+    return llm
 
 # Main App
 def main():
